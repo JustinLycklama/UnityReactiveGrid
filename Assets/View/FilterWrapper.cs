@@ -12,6 +12,10 @@ public class FilterWrapper : MonoBehaviour {
 
     public MovieDisplayGrid displayGrid;
 
+    // Functions
+    public Button runTestButton;
+    public Button randomizeButton;
+
     // Grid Size
     public InputField rows;
     public InputField columns;
@@ -35,7 +39,24 @@ public class FilterWrapper : MonoBehaviour {
     public Button clearFilter;
 
     private void Start() {
-        QueueTests();
+
+        // Functions
+        runTestButton.onClick.AddListener(() => {
+            QueueTests();
+        });
+
+        randomizeButton.onClick.AddListener(() => {
+            int numberOfAdds = Mathf.RoundToInt(displayGrid.numberOfColumns * displayGrid.numberOfRows / 2);
+
+            List<int> intList = new List<int>();
+            System.Random r = new System.Random();
+
+            for(int i = 0; i < numberOfAdds; i++) {
+                intList.Add(r.Next(1, 100));
+            }
+
+            MovieCollectionViewModel.sharedInstance.SimulateIncomingItems(intList.ToArray());
+        });
 
         // Grid Size
         submitGridSize.onClick.AddListener(() => {
@@ -115,6 +136,10 @@ public class FilterWrapper : MonoBehaviour {
         functionList.Add(TransposeToNewRow);
 
         functionList.Add(SimpleFilter);
+        functionList.Add(ClearFilter);
+        functionList.Add(AdvancedClearFilter);
+
+        functionList.Add(LargeTest);
 
         StartCoroutine(RunTests(functionList));
     }
@@ -250,6 +275,90 @@ public class FilterWrapper : MonoBehaviour {
         data.Add(new Tuple<EditType, int[]>(
             EditType.Filter,
             new[] { 1 }));
+
+        StartCoroutine(RunTest(data, callback));
+    }
+
+    private void ClearFilter(Action callback) {
+        displayGrid.SetGridSize(1, 3);
+
+        List<Tuple<EditType, int[]>> data = new List<Tuple<EditType, int[]>>();
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 1, 3 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 2 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new[] { 1 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new int[0]));
+
+        StartCoroutine(RunTest(data, callback, 1.2f));
+    }
+
+    private void AdvancedClearFilter(Action callback) {
+        displayGrid.SetGridSize(2, 3);
+
+        List<Tuple<EditType, int[]>> data = new List<Tuple<EditType, int[]>>();
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 3, 5 , 7, 9 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 2 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new[] { 5 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 6 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new int[0]));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new[] { 5 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new int[0]));
+
+        StartCoroutine(RunTest(data, callback, 1.5f));
+    }
+
+    private void LargeTest(Action callback) {
+        displayGrid.SetGridSize(5, 5);
+
+        List<Tuple<EditType, int[]>> data = new List<Tuple<EditType, int[]>>();
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 32, 68, 47, 19, 22, 35, 86, 93, 39, 44, 60, 10 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 12, 46, 80, 99 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Filter,
+            new[] { 47, 35, 93 }));
+
+        data.Add(new Tuple<EditType, int[]>(
+            EditType.Add,
+            new[] { 61, 27, 5 }));
 
         StartCoroutine(RunTest(data, callback));
     }

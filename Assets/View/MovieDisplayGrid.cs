@@ -12,8 +12,8 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
     public MovieItemRowView template;
     private MovieItemRowView[] rowViewList;
 
-    private int numberOfRows = 0;
-    private int numberOfColumns = 0;
+    public int numberOfRows { private set; get; }
+    public int numberOfColumns { private set; get; }
 
     private RowAnimationState[] rowAnimationStates;
 
@@ -73,6 +73,20 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
         }
     }
 
+    // Filter is not an ongoing list, only filter what has been specified to filter
+    public void SetFilter(int[] idsToFilter) {
+        filteredItemsIds = new HashSet<int>(idsToFilter);
+        dataUpdated = true;
+    }
+
+    private void UpdateRowStateGivenCollection(List<MovieItem> collection) {
+        for(int row = 0; row < numberOfRows; row++) {
+            List<MovieItem> rowItems = collection.Skip(row * numberOfColumns).Take(numberOfColumns).ToList();
+
+            rowAnimationStates[row].SetRowItems(rowItems, activeItemsIds, filteredItemsIds);
+        }
+    }
+
     private void PrintStateChange() {
         print("State Change");
         print("");
@@ -86,25 +100,7 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
 
         print("");
     }
-
-    /*
-     * Data Management
-     * */
-
-    private void UpdateRowStateGivenCollection(List<MovieItem> collection) {
-        for(int row = 0; row < numberOfRows; row++) {
-            List<MovieItem> rowItems = collection.Skip(row * numberOfColumns).Take(numberOfColumns).ToList();
-
-            rowAnimationStates[row].SetRowItems(rowItems, activeItemsIds, filteredItemsIds);
-        }
-    }    
-
-    // Filter is not an ongoing list, only filter what has been specified to filter
-    public void SetFilter(int[] idsToFilter) {
-        filteredItemsIds = new HashSet<int>(idsToFilter);
-        dataUpdated = true;
-    }
-
+  
     /*
      * Movie Update Notifiable Interface
      * */
@@ -170,6 +166,14 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
     }
 }
 
+/* 
+ * State Consolidation 
+ *
+ * This is where we keep track of what values are currently in a row, and how we determine what will happen when a row is given a new set of values.
+ * Actions that need to take place are split into three phases, delete, transpose, and add. This way we can perform each animation phase after the previous has completed
+ * 
+ * */
+
 public enum CellPhase {
     Delete,      
     Transpose,     
@@ -184,10 +188,6 @@ struct CellPhaseAction {
         this.moveTo = moveTo;
         this.addItem = addItem;
     }
-
-    //public CellPhaseAction(int moveTo) : this() {
-    //    this.moveTo = moveTo;
-    //}
 
     public CellPhaseAction(MovieItem? addItem) : this(0, addItem) {}
 }
@@ -248,6 +248,9 @@ public class RowAnimationState {
 
         leftSideboardTransposes.Clear();
         rightSideboardTransposes.Clear();
+
+        leftExitIndex = -1;
+        rightExitIndex = 0;
 
         // Do first pass, delete existing cells or move them to appropriate place
         for(int i = 0; i < columns; i++) {

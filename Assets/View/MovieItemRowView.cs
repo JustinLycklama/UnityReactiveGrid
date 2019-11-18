@@ -35,37 +35,6 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         panelTemplate.transform.SetParent(null);
     }
 
-    void Start() {
-
-        DOTween.Init();
-
-        //RectTransform rect = anyCell.GetComponent<RectTransform>();
-
-
-        //rect.position = itemPanelList[0].position;
-        //rect.sizeDelta = itemPanelList[0].sizeDelta;
-
-        //anyCell.rect.Set(0, 0, 100, 100);
-
-        Invoke("GetRectSet", 0.01f); ///on your start function to delay it a bit.    
-
-    }
-
-    void GetRectSet() {
-        //Set the Layout Min Value equivaline to RectTransform
-        //anyCell.sizeDelta = new Vector2(itemPanelList[0].rect.width, itemPanelList[0].rect.height);
-
-        //anyCell.anchorMin = itemPanelList[0].anchorMin;
-        //anyCell.anchorMax = itemPanelList[0].anchorMax;
-
-        //anyCell.anchoredPosition = itemPanelList[0].anchoredPosition;
-
-        //anyCell.DOAnchorPos(itemPanelList[2].anchoredPosition, 1);
-
-
-
-    }
-
     public void SetNumberOfColumns(int columns) {        
         if (columns <= 0) {
             columns = 1;
@@ -138,7 +107,9 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         Vector2 viewWidth = new Vector2(rectTransform.rect.width, 0);
 
         if (index < 0) {
-            return panelList[index * -1].anchoredPosition - viewWidth;
+            // (index * -1) - 1 => Original list indicies: -1 = 0, -2 = 1, -3 = 2, ...
+            // (columns - 1) => inverse the order. The first item on the left hand side should be closest to the left side of the screen 
+            return panelList[(columns - 1) - ((index * -1) - 1)].anchoredPosition - viewWidth;
         }
 
         else if (index >= 0 && index < columns) {
@@ -231,7 +202,6 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
     }
 
     public void Consolidate() {
-
 
         string oldState = "";
         string newState = "";
