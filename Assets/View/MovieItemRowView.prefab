@@ -107,6 +107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 852f5101962bccb4280683413f5ef13b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  rectTransform: {fileID: 937899427872691586}
   layoutGroup: {fileID: 8786057890660132098}
   panelTemplate: {fileID: 3090054252130410748}
   cellTemplate: {fileID: 8404409896013370987}

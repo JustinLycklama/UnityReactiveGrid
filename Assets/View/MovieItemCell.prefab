@@ -89,6 +89,7 @@ GameObject:
   - component: {fileID: 8983320059942075743}
   - component: {fileID: 6785807509046902789}
   - component: {fileID: 6695694104871852831}
+  - component: {fileID: 3936859557425956692}
   m_Layer: 5
   m_Name: MovieItemCell
   m_TagString: Untagged
@@ -164,5 +165,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 977263472e72e394d8c5ebcd72a40530, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canvasGroup: {fileID: 3936859557425956692}
   rectTransform: {fileID: 8283924746144612980}
   text: {fileID: 152540206461833141}
+--- !u!225 &3936859557425956692
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2497997033794972144}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0

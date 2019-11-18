@@ -68,4 +68,8 @@ public class MovieCollectionViewModel {
      public void SimulateIncomingItems(int[] ids) {
         request.ImmitateConnectionInsert(ids.ToList());
     }
+
+    public void ResetData() {
+        movieItemDictionary.Clear();
+    }
 }

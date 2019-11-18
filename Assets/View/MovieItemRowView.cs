@@ -7,11 +7,14 @@ using UnityEngine.UI;
 
 public interface RowStateModifiable {
     void CreateCell(int atIndex, MovieItem forItem, TweenCallback callback);
-    void TransposeCell(int atIndex, int toIndex, TweenCallback callback);
+    void TransposeCell(int atIndex, int toIndex, TweenCallback callback, MovieItem? withNewItem);
+    void DeleteCell(int atIndex, TweenCallback callback);
+    void Consolidate();
 }
 
 public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
 
+    public RectTransform rectTransform;
     public HorizontalLayoutGroup layoutGroup;
 
     public RectTransform panelTemplate;
@@ -19,9 +22,13 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
 
     public MovieItemCell cellTemplate;
     private Queue<MovieItemCell> reuseQueue = new Queue<MovieItemCell>();
+
     private MovieItemCell[] activeCells;
+    private MovieItemCell[] nextTransitionCells;
 
     private int columns = 0;
+
+    private const float animationDuration = 0.65f;
 
     private void Awake() {
         cellTemplate.transform.SetParent(null);
@@ -71,7 +78,8 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
             }
 
             if (activeCells != null && activeCells[i] != null) {
-                // TODO: also Hide active cell
+                // Hide cell off screen
+                activeCells[i].rectTransform.anchoredPosition = CellPositionForIndex(-1);
                 reuseQueue.Enqueue(activeCells[i]);                
             }
         }
@@ -80,6 +88,7 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
 
         panelList = new RectTransform[columns];
         activeCells = new MovieItemCell[columns];
+        nextTransitionCells = new MovieItemCell[columns];
 
         for(int i = 0; i < columns; i++) {
             RectTransform newTransform = Instantiate(panelTemplate);
@@ -89,10 +98,12 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         }
     }
 
-    private MovieItemCell DequeueCell() {
-        
+    private MovieItemCell DequeueCell(MovieItem item) {
+
+        MovieItemCell cell;
+
         if (reuseQueue.Count > 0) {
-            return reuseQueue.Dequeue();
+            cell = reuseQueue.Dequeue();
         } else {
             MovieItemCell newCell = Instantiate(cellTemplate);
 
@@ -102,7 +113,40 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
             newCell.rectTransform.anchorMin = panelList[0].anchorMin;
             newCell.rectTransform.anchorMax = panelList[0].anchorMax;
 
-            return newCell;
+            cell = newCell;
+        }
+
+        cell.SetHidden(false);
+        cell.SetMovieItem(item);
+
+        return cell;
+    }
+
+    private void EnqueueCell(MovieItemCell cell) {
+        cell.rectTransform.anchoredPosition = CellPositionForIndex(-1);
+        cell.SetHidden(true);
+
+        reuseQueue.Enqueue(cell);
+    }
+
+    private Vector2 CellPositionForIndex(int index) {
+
+        if (index < -columns || index > (columns * 2 - 1)) {
+            return Vector2.zero;
+        }
+
+        Vector2 viewWidth = new Vector2(rectTransform.rect.width, 0);
+
+        if (index < 0) {
+            return panelList[index * -1].anchoredPosition - viewWidth;
+        }
+
+        else if (index >= 0 && index < columns) {
+            return panelList[index].anchoredPosition;
+        }
+
+        else { // if (index >= columns)
+            return panelList[index - columns].anchoredPosition + viewWidth;
         }
     }
 
@@ -115,28 +159,102 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
             return;
         }
 
-        MovieItemCell newCell = DequeueCell();
+        MovieItemCell newCell = DequeueCell(forItem);
 
-        newCell.SetMovieItem(forItem);
-
-        newCell.rectTransform.anchoredPosition = panelList[atIndex].anchoredPosition;
+        newCell.rectTransform.anchoredPosition = CellPositionForIndex(atIndex);
         Vector2 fullSize = newCell.rectTransform.sizeDelta;
 
         newCell.rectTransform.sizeDelta = Vector2.zero;
 
-        Tween t = newCell.rectTransform.DOSizeDelta(fullSize, 1);
+        Tween t = newCell.rectTransform.DOSizeDelta(fullSize, animationDuration);
 
-        activeCells[atIndex] = newCell;
+        nextTransitionCells[atIndex] = newCell;
 
         t.OnComplete(callback);
     }
 
-    public void TransposeCell(int atIndex, int toIndex, TweenCallback callback) {
+    /*
+     * atIndex and toIndex can fall outside of our number of columns to accomodate the left and right sideboard
+     * */
+    public void TransposeCell(int atIndex, int toIndex, TweenCallback callback, MovieItem? withNewItem = null) {
 
-        MovieItemCell cellAtPos = activeCells[atIndex];
+        MovieItemCell cellAtPos;
+        
+        if (atIndex >= 0 && atIndex < columns) {
+            cellAtPos = activeCells[atIndex];
+        } else {
+            if (!withNewItem.HasValue) {
+                return;
+            }
 
-        Tween t = cellAtPos.rectTransform.DOAnchorPos(panelList[toIndex].anchoredPosition, 1);
+            cellAtPos = DequeueCell(withNewItem.Value);
+            cellAtPos.rectTransform.anchoredPosition = CellPositionForIndex(atIndex);
+        }
 
-        t.OnComplete(callback);
+        Tween t = cellAtPos.rectTransform.DOAnchorPos(CellPositionForIndex(toIndex), animationDuration);
+
+        // Don't bother saving the new state if it is transitioning off screen
+        if (toIndex >= 0 && toIndex < columns) {
+            nextTransitionCells[toIndex] = cellAtPos;
+        } 
+
+        t.OnComplete(() => {
+            // If the cell is offscreen, prepare for reuse
+            if(toIndex < 0 || toIndex >= columns) {
+                EnqueueCell(cellAtPos);
+            }
+
+            callback();
+        });
+    }
+
+    public void DeleteCell(int atIndex, TweenCallback callback) {
+        if(atIndex >= columns) {
+            return;
+        }
+
+        MovieItemCell oldCell = activeCells[atIndex];
+
+        Vector2 fullSize = oldCell.rectTransform.sizeDelta;
+
+        Tween t = oldCell.rectTransform.DOSizeDelta(Vector2.zero, animationDuration);
+
+        nextTransitionCells[atIndex] = null;
+
+        t.OnComplete(() => {
+            // Hide cell and return to regular size
+            oldCell.rectTransform.sizeDelta = fullSize;
+            EnqueueCell(oldCell);
+
+            callback();
+        });
+    }
+
+    public void Consolidate() {
+
+
+        string oldState = "";
+        string newState = "";
+
+        for(int i = 0; i < columns; i++) {
+
+            if(activeCells[i] == null) {
+                oldState += "null, ";
+            } else {
+                oldState += activeCells[i].text.text + ", ";
+            }
+
+            if(nextTransitionCells[i] == null) {
+                newState += "null, ";
+            } else {
+                newState += nextTransitionCells[i].text.text + ", ";
+            }
+        }
+
+        print("Active Cells Moves From States: ");
+        print(oldState);
+        print(newState);
+
+        Array.Copy(nextTransitionCells, activeCells, columns);
     }
 }

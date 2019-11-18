@@ -5,11 +5,15 @@ using UnityEngine.UI;
 
 public class MovieItemCell : MonoBehaviour {
 
+    public CanvasGroup canvasGroup;
     public RectTransform rectTransform;
-
     public Text text;
 
     public void SetMovieItem(MovieItem item) {
         text.text = item.title;
+    }
+
+    public void SetHidden(bool hidden) {
+        canvasGroup.alpha = hidden ? 0.1f : 1;
     }
 }

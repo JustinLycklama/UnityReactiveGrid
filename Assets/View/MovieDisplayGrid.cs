@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using UnityEngine.UI;
+using DG.Tweening;
 
 public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
 
@@ -20,7 +21,8 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
     private HashSet<int> filteredItemsIds = new HashSet<int>();
 
     private bool dataUpdated = false;
-    private List<MovieItem> newDataCollection = null;
+    private List<MovieItem> newDataCollection = new List<MovieItem>();
+    private List<MovieItem> currentAnimationCycleCollection = new List<MovieItem>();
 
     // Lifecycle
 
@@ -56,6 +58,8 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
         // Reset all data on grid resize
         activeItemsIds.Clear();
         filteredItemsIds.Clear();
+
+        MovieCollectionViewModel.sharedInstance.ResetData();
 
         for(int row = 0; row < numberOfRows; row++) {
             rowAnimationStates[row] = new RowAnimationState(numberOfColumns);
@@ -93,16 +97,12 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
 
             rowAnimationStates[row].SetRowItems(rowItems, activeItemsIds, filteredItemsIds);
         }
-    }
+    }    
 
-    public void PerformAllAnimationsForNewState() {
-        for(int row = 0; row < numberOfRows; row++) {
-
-            RowAnimationState state = rowAnimationStates[row];            
-            MovieItemRowView rowView = rowViewList[row];
-
-            state.EnactModificationsOnObject(rowView);            
-        }
+    // Filter is not an ongoing list, only filter what has been specified to filter
+    public void SetFilter(int[] idsToFilter) {
+        filteredItemsIds = new HashSet<int>(idsToFilter);
+        dataUpdated = true;
     }
 
     /*
@@ -122,22 +122,55 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
 
         yield return new WaitUntil(() => { return dataUpdated; });
         dataUpdated = false;
-        AnimateUpdate();
-    }
 
-    private void AnimateUpdate() {
-        UpdateRowStateGivenCollection(newDataCollection);
+        currentAnimationCycleCollection = newDataCollection.Where(item => !filteredItemsIds.Contains(item.id)).ToList();
+
+        // Update State
+        UpdateRowStateGivenCollection(currentAnimationCycleCollection);
         PrintStateChange();
 
-        PerformAllAnimationsForNewState();
+        // Perform Animations
+        StartCoroutine(PerformAnimateUpdate(new List<CellPhase> { CellPhase.Delete, CellPhase.Transpose, CellPhase.Create }));
+    }
 
-        activeItemsIds = new HashSet<int>(newDataCollection.Select(x => x.id));
+    IEnumerator PerformAnimateUpdate(List<CellPhase> phases) {
+
+        if (phases.Count == 0) {
+            CompleteAnimateUpdate();
+            yield break; 
+        }
+
+        CellPhase phase = phases[0];
+        phases.RemoveAt(0);
+
+        int animations = 0;
+        for(int row = 0; row < numberOfRows; row++) {
+
+            RowAnimationState state = rowAnimationStates[row];
+            MovieItemRowView rowView = rowViewList[row];
+
+            animations += state.EnactModificationsOnObject(rowView, phase, () => { animations--; });
+        }
+
+        yield return new WaitUntil(() => animations == 0);
+
+        StartCoroutine(PerformAnimateUpdate(phases));
+    }
+
+    private void CompleteAnimateUpdate() {
+
+        // Cleanup and reset
+        activeItemsIds = new HashSet<int>(currentAnimationCycleCollection.Select(x => x.id));
+
+        for(int row = 0; row < numberOfRows; row++) {
+            rowViewList[row].Consolidate();
+        }
 
         StartCoroutine(WaitForChange());
     }
 }
 
-enum CellPhase {
+public enum CellPhase {
     Delete,      
     Transpose,     
     Create       
@@ -147,13 +180,16 @@ struct CellPhaseAction {
     public int moveTo { get; private set; }
     public MovieItem? addItem { get; private set; }
 
-    public CellPhaseAction(int moveTo) : this() {
+    public CellPhaseAction(int moveTo = 0, MovieItem? addItem = null) : this() {
         this.moveTo = moveTo;
-    }
-
-    public CellPhaseAction(MovieItem? addItem) : this() {
         this.addItem = addItem;
     }
+
+    //public CellPhaseAction(int moveTo) : this() {
+    //    this.moveTo = moveTo;
+    //}
+
+    public CellPhaseAction(MovieItem? addItem) : this(0, addItem) {}
 }
 
 public class RowAnimationState {
@@ -163,6 +199,9 @@ public class RowAnimationState {
     private MovieItem?[] cellItems;
     private Dictionary<CellPhase, CellPhaseAction>[] cellPhaseActionsList;
 
+    private List<CellPhaseAction> leftSideboardTransposes;
+    private List<CellPhaseAction> rightSideboardTransposes;
+
     private int leftExitIndex = -1;
     private int rightExitIndex = 0;
 
@@ -171,6 +210,9 @@ public class RowAnimationState {
         
         cellItems = new MovieItem?[columns];
         cellPhaseActionsList = new Dictionary<CellPhase, CellPhaseAction>[columns];
+
+        leftSideboardTransposes = new List<CellPhaseAction>();
+        rightSideboardTransposes = new List<CellPhaseAction>();
 
         for(int i = 0; i < columns; i++) {
             cellPhaseActionsList[i] = new Dictionary<CellPhase, CellPhaseAction>();
@@ -203,6 +245,9 @@ public class RowAnimationState {
         for(int i = 0; i < columns; i++) {
             cellPhaseActionsList[i].Clear();
         }
+
+        leftSideboardTransposes.Clear();
+        rightSideboardTransposes.Clear();
 
         // Do first pass, delete existing cells or move them to appropriate place
         for(int i = 0; i < columns; i++) {
@@ -250,13 +295,11 @@ public class RowAnimationState {
 
         // Second pass, transition new items that did not exist from either edge or create new
         for(int i = 0; i < columns; i++) {
-
-
             if(i >= newRowItems.Count || dealtWithIds.Contains(newRowItems[i].id)) {
                 continue;
             }
 
-            MovieItem newItem = newRowItems[i];
+            MovieItem newItem = newRowItems[i];            
 
             if(!activeItemIds.Contains(newItem.id)) {
                 cellPhaseActionsList[i][CellPhase.Create] = new CellPhaseAction(newItem);
@@ -264,24 +307,69 @@ public class RowAnimationState {
             }
 
             // At this point the new item has not been handled, and previously existed elsewhere. We need to transition from an edge
+            List<int> newRowIds = newRowItems.Select(x => x.id).ToList();
+            int moveToIndex = newRowIds.IndexOf(newItem.id);
 
-
+            if(cellItems[0].HasValue == false || newItem.CompareTo(cellItems[0].Value) < 0) {
+                leftSideboardTransposes.Add(new CellPhaseAction(moveToIndex, newItem));
+            } else {
+                rightSideboardTransposes.Add(new CellPhaseAction(moveToIndex, newItem));
+            }
         }
-    }
 
-    public void EnactModificationsOnObject(RowStateModifiable modifiable) {
+        // The last item added on the left sideboard should be on the near edge of the screen
+        leftSideboardTransposes.Reverse();
+    }    
+
+    // Returns the number of animations kicked off by these modifications
+    public int EnactModificationsOnObject(RowStateModifiable modifiable, CellPhase forPhase, TweenCallback tweenCallback) {
+
+        int animationCount = 0;
 
         for(int i = 0; i < columns; i++) {
             Dictionary<CellPhase, CellPhaseAction> actions = cellPhaseActionsList[i];
 
-            if (actions.ContainsKey(CellPhase.Transpose)) {
-                modifiable.TransposeCell(i, actions[CellPhase.Transpose].moveTo, () => { });
+            switch(forPhase) {
+                case CellPhase.Delete:
+                    if(actions.ContainsKey(CellPhase.Delete)) {
+                        modifiable.DeleteCell(i, tweenCallback);
+                        animationCount++;
+                    }
+                    break;
+                case CellPhase.Transpose:
+                    if(actions.ContainsKey(CellPhase.Transpose)) {
+                        modifiable.TransposeCell(i, actions[CellPhase.Transpose].moveTo, tweenCallback, null);
+                        animationCount++;
+                    }
+                    break;
+                case CellPhase.Create:
+                    if(actions.ContainsKey(CellPhase.Create)) {
+                        modifiable.CreateCell(i, actions[CellPhase.Create].addItem.Value, tweenCallback);
+                        animationCount++;
+                    }
+                    break;
+            }                    
+        }
+
+        if (forPhase == CellPhase.Transpose) {
+            // Sideboard mapping: 0 = -1, 1 = -2, 2 = -3, ...
+            for(int i = 0; i < leftSideboardTransposes.Count; i++) {
+                CellPhaseAction leftPhaseAction = leftSideboardTransposes[i];
+
+                modifiable.TransposeCell((-1 - i), leftPhaseAction.moveTo, tweenCallback, leftPhaseAction.addItem);
+                animationCount++;
             }
 
-            if (actions.ContainsKey(CellPhase.Create)) {
-                modifiable.CreateCell(i, actions[CellPhase.Create].addItem.Value, () => { });
+            // Assuming columns == 3, Sideboard mapping: 0 = 3, 1 = 4, 2 = 5, ...
+            for(int i = 0; i < rightSideboardTransposes.Count; i++) {
+                CellPhaseAction rightPhaseAction = rightSideboardTransposes[i];
+
+                modifiable.TransposeCell(i + columns, rightPhaseAction.moveTo, tweenCallback, rightPhaseAction.addItem);
+                animationCount++;
             }
-        }
+        }        
+
+        return animationCount;
     }
 
     public void Print() {
@@ -306,7 +394,21 @@ public class RowAnimationState {
 
             MonoBehaviour.print(cellDetails); 
         }         
+
+        for(int i = 0; i < leftSideboardTransposes.Count; i++) {
+            CellPhaseAction leftPhaseAction = leftSideboardTransposes[i];
+
+            string cellDetails = "leftSideBoard #" + i + " will: ";
+            cellDetails += "Move new cell " + leftPhaseAction.addItem.Value.id + " to " + leftPhaseAction.moveTo + ".";
+            MonoBehaviour.print(cellDetails);
+        }
+
+        for(int i = 0; i < rightSideboardTransposes.Count; i++) {
+            CellPhaseAction rightPhaseAction = rightSideboardTransposes[i];
+
+            string cellDetails = "leftSideBoard #" + i + " will: ";
+            cellDetails += "Move new cell " + rightPhaseAction.addItem.Value.id +  " to " + rightPhaseAction.moveTo + ".";
+            MonoBehaviour.print(cellDetails);
+        }
     }
-
-
 }
