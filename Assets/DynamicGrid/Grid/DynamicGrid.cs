@@ -12,8 +12,8 @@ public class DynamicGrid : MonoBehaviour, MovieUpdateNotifiable {
     public ItemRow template;
     private ItemRow[] rowViewList;
 
-    public int numberOfRows { private set; get; }
-    public int numberOfColumns { private set; get; }
+    public int numberOfRows;
+    public int numberOfColumns;
 
     private RowAnimationState[] rowAnimationStates;
 
@@ -34,6 +34,8 @@ public class DynamicGrid : MonoBehaviour, MovieUpdateNotifiable {
         MovieCollectionViewModel.sharedInstance.SubscribeToCollectionUpdates(this);
 
         StartCoroutine(WaitForChange());
+
+        SetGridSize(numberOfRows, numberOfColumns);
     }
 
     private void OnDestroy() {

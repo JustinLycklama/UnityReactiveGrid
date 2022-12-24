@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 4431940936705019705}
   - component: {fileID: 2773755511309825399}
   m_Layer: 5
-  m_Name: MovieDisplayGrid
+  m_Name: DynamicGrid
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -96,7 +96,7 @@ PrefabInstance:
     - target: {fileID: 937899427872691585, guid: b6c9935891996b040a8df2e5c9ec5890,
         type: 3}
       propertyPath: m_Name
-      value: MovieItemRowView
+      value: ItemRow
       objectReference: {fileID: 0}
     - target: {fileID: 937899427872691585, guid: b6c9935891996b040a8df2e5c9ec5890,
         type: 3}
@@ -237,6 +237,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_SizeDelta.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 784540048692601988, guid: b6c9935891996b040a8df2e5c9ec5890,
+        type: 3}
+      propertyPath: m_Name
+      value: ItemCell
       objectReference: {fileID: 0}
     - target: {fileID: 1064862328719306161, guid: b6c9935891996b040a8df2e5c9ec5890,
         type: 3}
