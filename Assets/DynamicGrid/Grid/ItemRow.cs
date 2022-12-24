@@ -12,7 +12,7 @@ public interface RowStateModifiable {
     void Consolidate();
 }
 
-public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
+public class ItemRow : MonoBehaviour, RowStateModifiable {
 
     public RectTransform rectTransform;
     public HorizontalLayoutGroup layoutGroup;
@@ -20,11 +20,11 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
     public RectTransform panelTemplate;
     private RectTransform[] panelList;
 
-    public MovieItemCell cellTemplate;
-    private Queue<MovieItemCell> reuseQueue = new Queue<MovieItemCell>();
+    public ItemCell cellTemplate;
+    private Queue<ItemCell> reuseQueue = new Queue<ItemCell>();
 
-    private MovieItemCell[] activeCells;
-    private MovieItemCell[] nextTransitionCells;
+    private ItemCell[] activeCells;
+    private ItemCell[] nextTransitionCells;
 
     private int columns = 0;
 
@@ -56,8 +56,8 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         this.columns = columns;
 
         panelList = new RectTransform[columns];
-        activeCells = new MovieItemCell[columns];
-        nextTransitionCells = new MovieItemCell[columns];
+        activeCells = new ItemCell[columns];
+        nextTransitionCells = new ItemCell[columns];
 
         for(int i = 0; i < columns; i++) {
             RectTransform newTransform = Instantiate(panelTemplate);
@@ -67,14 +67,14 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         }
     }
 
-    private MovieItemCell DequeueCell(MovieItem item) {
+    private ItemCell DequeueCell(MovieItem item) {
 
-        MovieItemCell cell;
+        ItemCell cell;
 
         if (reuseQueue.Count > 0) {
             cell = reuseQueue.Dequeue();
         } else {
-            MovieItemCell newCell = Instantiate(cellTemplate);
+            ItemCell newCell = Instantiate(cellTemplate);
 
             newCell.transform.SetParent(layoutGroup.transform);
             newCell.rectTransform.sizeDelta = new Vector2(panelList[0].rect.width, panelList[0].rect.height);
@@ -91,7 +91,7 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
         return cell;
     }
 
-    private void EnqueueCell(MovieItemCell cell) {
+    private void EnqueueCell(ItemCell cell) {
         cell.rectTransform.anchoredPosition = CellPositionForIndex(-1);
         cell.SetHidden(true);
 
@@ -130,7 +130,7 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
             return;
         }
 
-        MovieItemCell newCell = DequeueCell(forItem);
+        ItemCell newCell = DequeueCell(forItem);
 
         newCell.rectTransform.anchoredPosition = CellPositionForIndex(atIndex);
         Vector2 fullSize = newCell.rectTransform.sizeDelta;
@@ -149,7 +149,7 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
      * */
     public void TransposeCell(int atIndex, int toIndex, TweenCallback callback, MovieItem? withNewItem = null) {
 
-        MovieItemCell cellAtPos;
+        ItemCell cellAtPos;
         
         if (atIndex >= 0 && atIndex < columns) {
             cellAtPos = activeCells[atIndex];
@@ -184,7 +184,7 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
             return;
         }
 
-        MovieItemCell oldCell = activeCells[atIndex];
+        ItemCell oldCell = activeCells[atIndex];
 
         Vector2 fullSize = oldCell.rectTransform.sizeDelta;
 
@@ -220,10 +220,6 @@ public class MovieItemRowView : MonoBehaviour, RowStateModifiable {
                 newState += nextTransitionCells[i].text.text + ", ";
             }
         }
-
-        print("Active Cells Moves From States: ");
-        print(oldState);
-        print(newState);
 
         Array.Copy(nextTransitionCells, activeCells, columns);
     }

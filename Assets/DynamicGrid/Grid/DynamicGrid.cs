@@ -5,12 +5,12 @@ using System.Linq;
 using UnityEngine.UI;
 using DG.Tweening;
 
-public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
+public class DynamicGrid : MonoBehaviour, MovieUpdateNotifiable {
 
     public VerticalLayoutGroup layoutGroup;
 
-    public MovieItemRowView template;
-    private MovieItemRowView[] rowViewList;
+    public ItemRow template;
+    private ItemRow[] rowViewList;
 
     public int numberOfRows { private set; get; }
     public int numberOfColumns { private set; get; }
@@ -53,7 +53,7 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
         numberOfColumns = cols;        
 
         rowAnimationStates = new RowAnimationState[numberOfRows];
-        rowViewList = new MovieItemRowView[numberOfRows];
+        rowViewList = new ItemRow[numberOfRows];
 
         // Reset all data on grid resize
         activeItemsIds.Clear();
@@ -64,7 +64,7 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
         for(int row = 0; row < numberOfRows; row++) {
             rowAnimationStates[row] = new RowAnimationState(numberOfColumns);
 
-            MovieItemRowView rowView = Instantiate(template);
+            ItemRow rowView = Instantiate(template);
             rowView.transform.SetParent(layoutGroup.transform);
 
             rowView.SetNumberOfColumns(numberOfColumns);
@@ -123,7 +123,7 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
 
         // Update State
         UpdateRowStateGivenCollection(currentAnimationCycleCollection);
-        PrintStateChange();
+        //PrintStateChange();
 
         // Perform Animations
         StartCoroutine(PerformAnimateUpdate(new List<CellPhase> { CellPhase.Delete, CellPhase.Transpose, CellPhase.Create }));
@@ -143,7 +143,7 @@ public class MovieDisplayGrid : MonoBehaviour, MovieUpdateNotifiable {
         for(int row = 0; row < numberOfRows; row++) {
 
             RowAnimationState state = rowAnimationStates[row];
-            MovieItemRowView rowView = rowViewList[row];
+            ItemRow rowView = rowViewList[row];
 
             animations += state.EnactModificationsOnObject(rowView, phase, () => { animations--; });
         }
@@ -411,7 +411,6 @@ public class RowAnimationState {
 
             string cellDetails = "leftSideBoard #" + i + " will: ";
             cellDetails += "Move new cell " + rightPhaseAction.addItem.Value.id +  " to " + rightPhaseAction.moveTo + ".";
-            MonoBehaviour.print(cellDetails);
         }
     }
 }

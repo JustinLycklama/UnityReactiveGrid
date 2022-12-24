@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class MovieItemCell : MonoBehaviour {
+public class ItemCell : MonoBehaviour {
 
     public CanvasGroup canvasGroup;
     public RectTransform rectTransform;

@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 
-// Wishing c# had a typealias so I could strongly type 'Id = int'
-
 public struct MovieItem: IEquatable<MovieItem>, IComparable<MovieItem> {
     public int id { get; private set; }
     public string title { get; private set; }

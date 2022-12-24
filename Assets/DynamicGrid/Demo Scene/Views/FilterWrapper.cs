@@ -10,7 +10,7 @@ using System.Linq;
  * */
 public class FilterWrapper : MonoBehaviour {
 
-    public MovieDisplayGrid displayGrid;
+    public DynamicGrid displayGrid;
 
     // Functions
     public Button runTestButton;
